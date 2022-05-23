@@ -91,7 +91,7 @@ contract("nftExample", async (accounts) => {
       });
     } catch (error) {
       assert(
-        true,
+        false,
         `error occurred while sending ether to nftContract, ${error}`
       );
     }
@@ -122,7 +122,7 @@ contract("nftExample", async (accounts) => {
       });
     } catch (error) {
       assert(
-        true,
+        false,
         `error occurred while sending ether to nftContract, ${error}`
       );
     }
@@ -154,11 +154,90 @@ contract("nftExample", async (accounts) => {
         from: creatorAddress,
         value: price,
       });
-    } catch (error) {
-      console.log(error);
-    }
 
-    const newTimestamp = (await web3.eth.getBlock("latest")).timestamp;
-    console.log(newTimestamp - timestamp);
+      assert(false, "revert has not occurred");
+    } catch (error) {
+      assert.equal(error.reason, "Too early", "Wrong error occurred");
+    }
+  });
+
+  it("mint: timestamp based mint after timestamp condition is met", async () => {
+    const nftContract = await nftExample.new();
+
+    //minting config
+    await nftContract.setBlockBased(false, fromCreator);
+    const timestamp = (await web3.eth.getBlock("latest")).timestamp;
+    await nftContract.setTimestamp(timestamp);
+    await nftContract.setPrice(10000);
+
+    const price = await nftContract.getPrice();
+    try {
+      await nftContract
+        .mint(1, {
+          from: creatorAddress,
+          value: price,
+        })
+        .then(({ logs }) => {
+          assert.equal(logs.length, 1, "Wrong number of logs");
+          assert.equal(
+            logs[0].event,
+            "Success",
+            "'Success' event has not been occurred"
+          );
+        });
+    } catch (error) {
+      assert(false, error);
+    }
+  });
+
+  it("mint: block based mint before mint condition is met", async () => {
+    const nftContract = await nftExample.new();
+
+    //minting config
+    await nftContract.setBlockBased(true, fromCreator);
+    const blockNumber = (await web3.eth.getBlock("latest")).number;
+    await nftContract.setBlockNumber(blockNumber + 5);
+    await nftContract.setPrice(10000);
+
+    const price = await nftContract.getPrice();
+    try {
+      await nftContract.mint(1, {
+        from: creatorAddress,
+        value: price,
+      });
+
+      assert(false, "revert has not occurred");
+    } catch (error) {
+      assert.equal(error.reason, "Too early", "Wrong error occurred");
+    }
+  });
+
+  it("mint: block based mint after mint condition is met", async () => {
+    const nftContract = await nftExample.new();
+
+    //minting config
+    await nftContract.setBlockBased(true, fromCreator);
+    const blockNumber = (await web3.eth.getBlock("latest")).number;
+    await nftContract.setBlockNumber(blockNumber + 1);
+    await nftContract.setPrice(10000);
+
+    const price = await nftContract.getPrice();
+    try {
+      await nftContract
+        .mint(1, {
+          from: creatorAddress,
+          value: price,
+        })
+        .then(({ logs }) => {
+          assert.equal(logs.length, 1, "Wrong number of logs");
+          assert.equal(
+            logs[0].event,
+            "Success",
+            "'Success' event has not been occurred"
+          );
+        });
+    } catch (error) {
+      assert(false, error);
+    }
   });
 });
